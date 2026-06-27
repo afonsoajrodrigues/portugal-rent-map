@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>How much does it cost to rent in Portugal?</title>
+
+  <!-- D3 is loaded from a CDN. -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #faf8f4;
+      color: #1a1a1a;
+      font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+    }
+    .page { max-width: 720px; margin: 0 auto; padding: 40px 20px 64px; }
+
+    /* Article text */
+    h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 10px; }
+    .byline { color: #6b6b6b; font-style: italic; font-size: .9rem; margin: 0 0 24px; }
+    .standfirst { font-size: 1.2rem; color: #333; margin: 0 0 8px; }
+    h2 { font-size: 1.3rem; margin: 34px 0 10px; }
+    .page p { font-size: 1.05rem; margin: 0 0 18px; }
+
+    /* The map figure */
+    figure { margin: 30px 0; }
+    figcaption { color: #6b6b6b; font-size: .82rem; margin-top: 10px; }
+
+    .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .controls span { font-size: .9rem; color: #6b6b6b; }
+    button {
+      border: 1px solid #d8d3c9; background: #fff; color: #1a1a1a;
+      padding: 7px 14px; border-radius: 999px; cursor: pointer; font-size: .9rem;
+    }
+    button.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 8px; }
+    .legend div { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: #6b6b6b; }
+    .legend span { width: 16px; height: 16px; border-radius: 3px; }
+
+    svg { width: 100%; height: auto; display: block; }
+    .municipality { stroke: #fff; stroke-width: .4; cursor: pointer; }
+    .municipality:hover { stroke: #000; stroke-width: 1.1; }
+
+    .tooltip {
+      position: fixed; pointer-events: none; opacity: 0; transition: opacity .12s;
+      background: #fff; border: 1px solid #e0dccf; border-radius: 10px;
+      padding: 10px 12px; font-size: .85rem; max-width: 230px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.12);
+    }
+    .tooltip .price { font-size: 1.25rem; font-weight: 700; margin: 4px 0; }
+    .tooltip .meta { color: #6b6b6b; font-size: .78rem; }
+  </style>
+</head>
+
+<body>
+  <article class="page">
+
+    <h1>Portugal's housing crisis reaches new extremes as a one-bedroom rent in
+        the capital eats up almost an entire salary</h1>
+
+    <p class="byline">Afonso Rodrigues · 27 June 2026</p>
+
+    <p class="standfirst">The median rent for a one-bedroom apartment in Lisbon now
+       stands at around <strong>€784</strong> a month. With the national minimum wage
+       at €920, that single apartment swallows <strong>85% of a person's pay check</strong>.</p>
+
+    <figure>
+      <div class="controls">
+        <span>Show:</span>
+        <button id="btn-m2" class="active">Price per m&sup2;</button>
+        <button id="btn-t1">Rent for a 1-bedroom (45&nbsp;m&sup2;)</button>
+      </div>
+
+      <div class="legend" id="legend"></div>
+      <svg id="map" viewBox="0 0 640 760"></svg>
+
+      <figcaption>
+        Median rent by municipality, first quarter of 2026. Use the buttons to switch
+        between price per m&sup2; and the rent for a one-bedroom flat; hover a
+        municipality to see its value. Municipalities without their own figure use the
+        price of their sub-region (NUTS III); a one-bedroom flat is assumed to be
+        45&nbsp;m&sup2;. Source: INE.
+      </figcaption>
+    </figure>
+
+    <h2>Rents rose 9.1% over the year</h2>
+
+    <p>The median rent on new lease agreements in Portugal reached €9.46 per square
+       metre in the first quarter, a year-over-year rise of 9.1% that accelerated from
+       the 7.9% recorded in the previous quarter, according to the National Statistics
+       Institute (INE).</p>
+
+    <p>According to the agency's local-level Housing Rent Statistics, in the first
+       quarter of 2026 the median rent across 39,395 new lease agreements reached
+       €9.46 per square metre. That figure represents year-over-year growth of 9.1%,
+       higher than in the previous quarter (7.9%), while the number of new lease
+       agreements rose by 0.7% compared with the first quarter of last year.</p>
+
+    <p>The median rent increased across all NUTS III sub-regions, the INE said. The
+       highest rents were recorded in Greater Lisbon (€14.38 per square metre), the
+       Autonomous Region of Madeira (€11.97), the Setúbal Peninsula (€11.35), the
+       Algarve (€10.71) and the Porto Metropolitan Area (€10.13).</p>
+
+    <h2>Lisbon posts the highest median rent</h2>
+
+    <p>The INE data further indicate that, in the first quarter of 2026, the median
+       rent rose year-over-year in all 24 municipalities with more than 100,000
+       inhabitants. Vila Nova de Famalicão showed the largest change (15.1%), while
+       Lisbon posted the highest median rent (€17.42 per square metre), albeit with a
+       year-over-year rate (8.2%) below the national figure (9.1%).</p>
+
+  </article>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    // What the map shows: "price_m2" or "rent_t1_45m2".
+    let metric = "price_m2";
+
+    const svg = d3.select("#map");
+    const tooltip = d3.select("#tooltip");
+
+    // Compare names ignoring accents and case, so the data matches the map.
+    const clean = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+
+    // Load geometry + data together, then draw. (Needs a local server or GitHub Pages.)
+    Promise.all([
+      d3.json("portugal_municipalities.geojson"),
+      d3.csv("portugal_rents.csv")
+    ]).then(([geo, data]) => {
+
+      // Lookup tables by level, to find a price by name.
+      const byMunicipality = new Map(), byNuts3 = new Map(), byNuts2 = new Map();
+      data.forEach(d => {
+        d.price_m2 = +d.price_m2;
+        d.rent_t1_45m2 = +d.rent_t1_45m2;
+        if (d.level === "municipality") byMunicipality.set(clean(d.zone), d);
+        else if (d.level === "nuts3") byNuts3.set(clean(d.zone), d);
+        else if (d.level === "nuts2") byNuts2.set(clean(d.zone), d);
+      });
+
+      // Each municipality uses its own price, else its sub-region, else its region.
+      geo.features.forEach(f => {
+        const p = f.properties;
+        const own = byMunicipality.get(clean(p.municipality));
+        f.data = own || byNuts3.get(clean(p.nuts3)) || byNuts2.get(clean(p.nuts2));
+        f.ownFigure = Boolean(own);
+      });
+
+      // Project longitude/latitude onto the SVG.
+      const path = d3.geoPath(d3.geoMercator().fitSize([640, 760], geo));
+      let colour;
+
+      function draw() {
+        const values = geo.features.map(f => f.data[metric]);
+        colour = d3.scaleQuantize().domain([d3.min(values), d3.max(values)]).range(d3.schemeYlOrRd[6]);
+
+        svg.selectAll("path")
+          .data(geo.features)
+          .join("path")
+            .attr("class", "municipality")
+            .attr("d", path)
+            .attr("fill", f => colour(f.data[metric]))
+            .on("mousemove", showTooltip)
+            .on("mouseleave", () => tooltip.style("opacity", 0));
+
+        drawLegend();
+      }
+
+      function drawLegend() {
+        const suffix = metric === "price_m2" ? " €/m²" : " €";
+        const box = d3.select("#legend").html("");
+        colour.range().forEach(c => {
+          const [a, b] = colour.invertExtent(c);
+          box.append("div").html(`<span style="background:${c}"></span>${Math.round(a)}–${Math.round(b)}${suffix}`);
+        });
+      }
+
+      function showTooltip(event, f) {
+        const value = f.data[metric];
+        const text = metric === "price_m2" ? "€" + value.toFixed(2) + " / m²" : "€" + Math.round(value) + " / month";
+        const note = f.ownFigure ? "municipality figure" : "estimated from " + f.data.zone + " (sub-region)";
+        tooltip.html(`<b>${f.properties.municipality}</b>
+           <div class="price">${text}</div>
+           <div class="meta">${note}<br>District of ${f.properties.district}</div>`)
+          .style("opacity", 1)
+          .style("left", (event.clientX + 14) + "px")
+          .style("top", (event.clientY + 14) + "px");
+      }
+
+      // Buttons switch the metric and redraw.
+      d3.selectAll("button").on("click", function () {
+        metric = this.id === "btn-t1" ? "rent_t1_45m2" : "price_m2";
+        d3.selectAll("button").classed("active", false);
+        d3.select(this).classed("active", true);
+        draw();
+      });
+
+      draw();
+    });
+  </script>
+</body>
+</html>
