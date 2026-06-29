@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Raw data files (too large / not needed in the repo)
+ine_rendas_*.xlsx
+*.xls
+
+# Editor
+.vscode/
+*.swp
