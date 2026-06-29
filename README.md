@@ -3,7 +3,7 @@
 An interactive choropleth map and data-journalism piece exploring median rents
 across mainland Portugal, built with D3.js.
 
-**Live project:** *add your GitHub Pages link here once you publish*
+**Live project:** https://afonsoajrodrigues.github.io/portugal-rent-map/
 
 ![Map of rent prices in Portugal](preview.png)
 
